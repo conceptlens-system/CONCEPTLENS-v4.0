@@ -8,7 +8,7 @@ from app.core.config import settings
 # Config
 MONGO_URL = settings.MONGODB_URL
 DB_NAME = settings.DATABASE_NAME
-PWD_CONTEXT = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+PWD_CONTEXT = CryptContext(schemes=["bcrypt", "pbkdf2_sha256"], deprecated="auto")
 
 def get_password_hash(password: str) -> str:
     return PWD_CONTEXT.hash(password)

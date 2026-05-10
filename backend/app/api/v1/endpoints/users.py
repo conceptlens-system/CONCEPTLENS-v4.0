@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Body
 from typing import List
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.models.schemas import ProfessorRequest, ProfessorRequestCreate, Institution
 from bson import ObjectId
 

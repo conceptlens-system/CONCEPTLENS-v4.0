@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 import tempfile
 import os
 from typing import List
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.models.schemas import DetectedMisconception
 from bson import ObjectId
 from app.core.security import get_current_user
@@ -470,23 +470,48 @@ async def get_grouped_misconceptions(status: str = "valid", exam_id: str | None 
     return result
 
 @router.get("/dashboard/stats")
-async def get_dashboard_stats():
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     db = await get_database()
-    pending_count = await db.misconceptions.count_documents({"status": "pending"})
-    valid_count = await db.misconceptions.count_documents({"status": "valid"})
-    total_responses = await db.student_responses.count_documents({})
+    professor_id = str(current_user["_id"])
+    
+    # Get all exams for this professor
+    exam_cursor = db.exams.find({"professor_id": professor_id})
+    exams = await exam_cursor.to_list(length=1000)
+    exam_ids = [str(e["_id"]) for e in exams]
+    
+    pending_count = await db.misconceptions.count_documents({
+        "status": "pending",
+        "assessment_id": {"$in": exam_ids}
+    })
+    valid_count = await db.misconceptions.count_documents({
+        "status": "valid",
+        "assessment_id": {"$in": exam_ids}
+    })
+    total_responses = await db.student_responses.count_documents({
+        "assessment_id": {"$in": exam_ids}
+    })
     
     return {
         "pending_misconceptions": pending_count,
         "valid_misconceptions": valid_count,
-        "processed_responses": total_responses # Simplified
+        "processed_responses": total_responses
     }
 
 @router.get("/misconceptions", response_model=List[DetectedMisconception])
-async def list_misconceptions(status: str = "pending"):
+async def list_misconceptions(status: str = "pending", current_user: dict = Depends(get_current_user)):
     db = await get_database()
-    cursor = db.misconceptions.find({"status": status})
-    misconceptions = await cursor.to_list(length=100)
+    professor_id = str(current_user["_id"])
+    
+    # Get all exams for this professor
+    exam_cursor = db.exams.find({"professor_id": professor_id})
+    exams = await exam_cursor.to_list(length=1000)
+    exam_ids = [str(e["_id"]) for e in exams]
+    
+    cursor = db.misconceptions.find({
+        "status": status,
+        "assessment_id": {"$in": exam_ids}
+    })
+    misconceptions = await cursor.to_list(length=1000)
     # Map _id to id
     for m in misconceptions:
         m["_id"] = str(m["_id"])

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List
 from app.models.schemas import StudentResponseCreate, StudentResponse
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.kiro.job_runner import trigger_analysis_job
 
 router = APIRouter()

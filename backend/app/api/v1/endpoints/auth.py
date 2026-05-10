@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Body
 from app.models.schemas import UserCreate, UserLogin, User, Token, ChangePasswordRequest
 from app.core.security import get_password_hash, verify_password, create_access_token, get_current_user
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from fastapi.responses import JSONResponse
 from bson import ObjectId
 from datetime import datetime

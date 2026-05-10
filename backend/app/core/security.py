@@ -4,20 +4,37 @@ from jose import jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from bson import ObjectId
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-PWD_CONTEXT = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+PWD_CONTEXT = CryptContext(schemes=["pbkdf2_sha256", "bcrypt", "sha256_crypt", "md5_crypt"], deprecated="auto")
 SECRET_KEY = "CHANGE_THIS_IN_PRODUCTION_SECRET_KEY" # TODO: Move to env
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days
 
+import bcrypt
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     if not hashed_password:
         return False
-    return PWD_CONTEXT.verify(plain_password, hashed_password)
+    
+    hashed_password = hashed_password.strip()
+    
+    # Workaround for passlib/bcrypt version incompatibility in Python 3.13+
+    if hashed_password.startswith("$2"):
+        try:
+            return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        except Exception as e:
+            print(f"Manual bcrypt verification failed: {e}")
+            return False
+
+    try:
+        return PWD_CONTEXT.verify(plain_password, hashed_password)
+    except Exception as e:
+        print(f"ERROR: Password verification failed: {e}")
+        return False
 
 def get_password_hash(password: str) -> str:
     return PWD_CONTEXT.hash(password)

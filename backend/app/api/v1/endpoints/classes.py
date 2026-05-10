@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Body
 from typing import List
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.models.schemas import Class, ClassCreate, ClassJoinRequest, Announcement, AnnouncementCreate
 from app.models.notifications import Notification
 from app.core.security import get_current_user

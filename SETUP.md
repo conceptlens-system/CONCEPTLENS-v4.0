@@ -25,7 +25,7 @@ cd CONCEPTLENS-v1.0
 Navigate to the backend directory:
 
 ```bash
-cd backend
+cd server
 ```
 
 ### Create Virtual Environment
@@ -74,7 +74,7 @@ The backend server will start at `http://127.0.0.1:8000`. API docs are available
 Open a new terminal window and navigate to the frontend directory:
 
 ```bash
-cd frontend
+cd client
 ```
 
 ### Install Dependencies

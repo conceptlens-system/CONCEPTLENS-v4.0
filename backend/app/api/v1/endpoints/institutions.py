@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body, Depends
 from typing import List
 from app.models.schemas import Institution, InstitutionCreate
-from app.db.mongodb import get_database
+from app.core.database import get_database
 
 router = APIRouter()
 

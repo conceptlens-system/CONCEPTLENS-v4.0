@@ -14,14 +14,20 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
     return res;
 }
 
-export async function fetchStats() {
-    const res = await apiFetch(`${API_URL}/analytics/dashboard/stats`, { cache: 'no-store' });
+export async function fetchStats(token: string) {
+    const res = await apiFetch(`${API_URL}/analytics/dashboard/stats`, { 
+        cache: 'no-store',
+        headers: { "Authorization": `Bearer ${token}` }
+    });
     if (!res.ok) throw new Error(`Failed to fetch stats: ${res.status} ${res.statusText}`);
     return res.json();
 }
 
-export async function fetchMisconceptions(status: string = "pending") {
-    const res = await apiFetch(`${API_URL}/analytics/misconceptions?status=${status}`, { cache: 'no-store' });
+export async function fetchMisconceptions(status: string = "pending", token: string) {
+    const res = await apiFetch(`${API_URL}/analytics/misconceptions?status=${status}`, { 
+        cache: 'no-store',
+        headers: { "Authorization": `Bearer ${token}` }
+    });
     if (!res.ok) throw new Error(`Failed to fetch misconceptions: ${res.status} ${res.statusText}`);
     return res.json();
 }

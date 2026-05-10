@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.core.security import get_current_user
 from datetime import datetime, timezone
 import calendar

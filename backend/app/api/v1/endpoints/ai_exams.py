@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body, Depends
 from pydantic import BaseModel
 from typing import List, Optional
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.security import get_current_user

@@ -40,7 +40,7 @@ export default function ProfessorDashboard() {
                 const [exams, classes, pending, notifs, assessments] = await Promise.all([
                     fetchExams(token),
                     fetchClasses(token),
-                    fetchMisconceptions("pending"),
+                    fetchMisconceptions("pending", token),
                     fetchNotifications(token),
                     fetchAssessmentSummaries(token)
                 ])

@@ -1,5 +1,5 @@
 import asyncio
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.kiro.analyzers.clustering import cluster_responses
 from app.models.schemas import StudentResponse, DetectedMisconception
 from datetime import datetime

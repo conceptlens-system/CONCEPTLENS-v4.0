@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.models.schemas import TeacherValidation
 from datetime import datetime, timezone
 from bson import ObjectId

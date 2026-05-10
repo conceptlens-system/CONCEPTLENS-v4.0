@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.core.security import get_current_user
 from pydantic import BaseModel, Field
 from typing import List, Optional

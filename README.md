@@ -89,8 +89,8 @@ Open a new terminal and navigate to the `frontend` directory.
 ## 🧪 Running the Project
 
 1.  Ensure your **MongoDB** database is running and the connection string in `.env` is correct.
-2.  Start the **Backend** (`uvicorn main:app --reload`).
-3.  Start the **Frontend** (`npm run dev`).
+2.  Start the **Backend** (`uvicorn app.main:app --reload` from the `server` directory).
+3.  Start the **Frontend** (`npm run dev` from the `client` directory).
 4.  Open your browser and visit `http://localhost:3000`.
 
 ## 📂 Project Structure

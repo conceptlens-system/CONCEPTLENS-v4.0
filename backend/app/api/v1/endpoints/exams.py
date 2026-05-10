@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Body, Depends
 from typing import List
-from app.db.mongodb import get_database
+from app.core.database import get_database
 from app.models.exams import Exam, ExamCreate
 from app.core.security import get_current_user
 from bson import ObjectId
