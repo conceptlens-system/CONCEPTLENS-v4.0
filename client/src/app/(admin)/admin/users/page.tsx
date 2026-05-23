@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { fetchUsers, fetchInstitutes, createUser, deleteUser } from "@/lib/api"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -31,6 +32,7 @@ interface Institution {
 }
 
 export default function UsersPage() {
+    const { data: session } = useSession()
     const [users, setUsers] = useState<UserData[]>([])
     const [institutions, setInstitutions] = useState<Institution[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -50,11 +52,11 @@ export default function UsersPage() {
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [confirmAction, setConfirmAction] = useState<() => Promise<void>>(async () => { })
 
-    const fetchData = async () => {
+    const fetchData = async (token: string) => {
         try {
             setIsLoading(true)
             const [usersRes, instRes] = await Promise.all([
-                fetchUsers(),
+                fetchUsers(token),
                 fetchInstitutes()
             ])
 
@@ -70,8 +72,11 @@ export default function UsersPage() {
     }
 
     useEffect(() => {
-        fetchData()
-    }, [])
+        const token = session?.user ? (session.user as any).accessToken : null;
+        if (token) {
+            fetchData(token)
+        }
+    }, [session])
 
     const handleCreate = async () => {
         // Simple validation
@@ -79,12 +84,15 @@ export default function UsersPage() {
             return toast.error("Please fill all required fields")
         }
 
+        const token = session?.user ? (session.user as any).accessToken : null;
+        if (!token) return;
+
         try {
-            await createUser(formData)
+            await createUser(token, formData)
             toast.success("User created")
             setIsDialogOpen(false)
             setFormData({ full_name: "", email: "", password: "", department: "", institution_id: "", role: activeTab })
-            fetchData()
+            fetchData(token)
         } catch (error: any) {
             console.error(error)
             toast.error(error.message || "Error creating user")
@@ -92,11 +100,13 @@ export default function UsersPage() {
     }
 
     const handleDelete = async (id: string) => {
+        const token = session?.user ? (session.user as any).accessToken : null;
+        if (!token) return;
         setConfirmAction(() => async () => {
             try {
-                await deleteUser(id)
+                await deleteUser(token, id)
                 toast.success("User deleted")
-                fetchData()
+                fetchData(token)
             } catch (error) {
                 console.error(error)
                 toast.error("Error deleting user")

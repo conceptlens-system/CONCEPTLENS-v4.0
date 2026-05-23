@@ -23,7 +23,7 @@ export function useMaintenance() {
 }
 
 function MaintenanceContent({ children }: { children: React.ReactNode }) {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [isOpen, setIsOpen] = useState(false);
     const [maintenanceInfo, setMaintenanceInfo] = useState<string | null>(null);
     const pathname = usePathname();
@@ -31,11 +31,21 @@ function MaintenanceContent({ children }: { children: React.ReactNode }) {
     const searchParams = useSearchParams();
 
     useEffect(() => {
+        // Don't open for admins — never, under any circumstance
+        const isAdmin = session?.user && (session.user as any).role === "admin";
+        if (status === "loading" || isAdmin) return;
+
         if (searchParams.get('maintenance') === 'true') {
             setIsOpen(true);
         }
 
         const handleMaintenanceEvent = async () => {
+            // Admins should never be blocked by maintenance
+            if (isAdmin) {
+                // Just redirect them to the admin dashboard instead
+                router.push("/admin");
+                return;
+            }
             setIsOpen(true);
             sessionStorage.removeItem("maintenance_acknowledged");
             // We used to sign out all users here, but we will preserve their active session so they can resume after the maintenance is complete.
@@ -48,12 +58,14 @@ function MaintenanceContent({ children }: { children: React.ReactNode }) {
 
         window.addEventListener('conceptlens-maintenance-active', handleMaintenanceEvent);
         return () => window.removeEventListener('conceptlens-maintenance-active', handleMaintenanceEvent);
-    }, [pathname, router, searchParams]);
+    }, [pathname, router, searchParams, session, status]);
 
     useEffect(() => {
         let interval: any;
 
         const checkMaintenanceStatus = async () => {
+            if (status === "loading") return;
+
             if (session?.user && (session.user as any).role === "admin") {
                 // Admins are exempt from UI locking
                 if (isOpen) setIsOpen(false);

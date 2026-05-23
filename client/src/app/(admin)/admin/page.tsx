@@ -28,12 +28,15 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         async function load() {
+            const token = session?.user ? (session.user as any).accessToken : null;
+            if (!token) return;
+
             try {
                 // Fetch data for IT Admin metrics
                 const [usersData, instData, requestsData] = await Promise.all([
-                    fetchUsers().catch(() => []),
+                    fetchUsers(token).catch(() => []),
                     fetchInstitutes().catch(() => []),
-                    fetchProfessorRequests().catch(() => [])
+                    fetchProfessorRequests(token).catch(() => [])
                 ])
 
                 setStats({
@@ -53,15 +56,12 @@ export default function AdminDashboard() {
                 setInstitutes(instMap)
 
                 // Fetch Messages
-                const token = session?.user ? (session.user as any).accessToken : null;
-                if (token) {
-                    const res = await fetch(`${API_URL}/contact/`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    })
-                    if (res.ok) {
-                        const data = await res.json()
-                        setMessages(Array.isArray(data) ? data : [])
-                    }
+                const res = await fetch(`${API_URL}/contact/`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+                if (res.ok) {
+                    const data = await res.json()
+                    setMessages(Array.isArray(data) ? data : [])
                 }
 
             } catch (e) {
@@ -76,8 +76,10 @@ export default function AdminDashboard() {
     const unreadCount = messages.filter(m => m.status === "new").length;
 
     const handleApproveProf = async (id: string) => {
+        const token = session?.user ? (session.user as any).accessToken : null;
+        if (!token) return;
         try {
-            await approveProfessorRequest(id)
+            await approveProfessorRequest(token, id)
             toast.success("Professor Approved")
             setProfRequests(profRequests.filter(r => r._id !== id))
             setStats(prev => ({ ...prev, requests: prev.requests - 1, users: prev.users + 1 }))

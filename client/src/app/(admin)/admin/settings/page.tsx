@@ -13,11 +13,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { fetchGlobalSettings, updateGlobalSettings, fetchGlobalAnnouncements, createGlobalAnnouncement, toggleGlobalAnnouncement, deleteGlobalAnnouncement } from "@/lib/api"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
-import { Settings, Save, Loader2, AlertTriangle, Shield, HardDrive, Bell, Plus, Trash2 } from "lucide-react"
+import { Settings, Save, Loader2, AlertTriangle, Shield, HardDrive, Bell, Plus, Trash2, RefreshCcw, LogOut } from "lucide-react"
 import { toast } from "sonner"
+import { signOut } from "next-auth/react"
 
 export default function AdminSettingsPage() {
-    const { data: session } = useSession()
+    const { data: session, status } = useSession()
     const [settings, setSettings] = useState({
         ai_features_enabled: true,
         maintenance_mode: false,
@@ -29,14 +30,19 @@ export default function AdminSettingsPage() {
     })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const [error, setError] = useState("")
+    const [error, setError] = useState<"" | "session_expired" | "load_failed">("")
+    const [retryCount, setRetryCount] = useState(0)
 
     useEffect(() => {
         async function loadSettings() {
+            if (status === 'loading') return
             if (!session?.user) return
+            const token = (session.user as any).accessToken
+            if (!token) return  // Wait until token is available in the session
+            setError("")
+            setLoading(true)
             try {
-                // @ts-ignore
-                const data = await fetchGlobalSettings((session.user as any).accessToken)
+                const data = await fetchGlobalSettings(token)
                 let maintenanceStart = ""
                 let maintenanceEnd = ""
                 if (data.maintenance_start) {
@@ -59,13 +65,18 @@ export default function AdminSettingsPage() {
                 })
             } catch (err: any) {
                 console.error(err)
-                setError("Failed to load global configurations")
+                // Detect 401 / expired token
+                if (err?.message?.includes('401') || err?.message?.includes('unauthorized') || err?.message?.toLowerCase().includes('credential')) {
+                    setError("session_expired")
+                } else {
+                    setError("load_failed")
+                }
             } finally {
                 setLoading(false)
             }
         }
         loadSettings()
-    }, [session])
+    }, [session, status, retryCount])
 
     const handleSave = async () => {
         setSaving(true)
@@ -115,7 +126,26 @@ export default function AdminSettingsPage() {
                         Loading preferences...
                     </div>
                 ) : error ? (
-                    <div className="p-4 bg-red-50 text-red-600 rounded-lg">{error}</div>
+                    <div className="p-6 bg-red-50 text-red-700 rounded-xl border border-red-100 flex flex-col items-center gap-4 text-center">
+                        <AlertTriangle className="h-8 w-8 text-red-500" />
+                        {error === "session_expired" ? (
+                            <>
+                                <p className="font-semibold text-lg">Session Expired</p>
+                                <p className="text-sm text-red-600/80">Your login session has expired. Please sign in again to continue.</p>
+                                <Button variant="destructive" className="gap-2" onClick={() => signOut({ callbackUrl: '/login' })}>
+                                    <LogOut className="h-4 w-4" /> Sign In Again
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <p className="font-semibold text-lg">Failed to load configurations</p>
+                                <p className="text-sm text-red-600/80">Could not connect to the server. Make sure the backend is running.</p>
+                                <Button variant="outline" className="gap-2 border-red-200 text-red-700 hover:bg-red-100" onClick={() => setRetryCount(c => c + 1)}>
+                                    <RefreshCcw className="h-4 w-4" /> Retry
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 ) : (
                     <div className="space-y-6 mt-8">
 

@@ -13,6 +13,7 @@ import { fetchUserProfile, updateUserProfile } from "@/lib/api"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { PageTransition } from "@/components/PageTransition"
+import { ApiBalanceTracker } from "@/components/ApiBalanceTracker"
 
 export default function StudentProfilePage() {
     const { data: session, status } = useSession()
@@ -240,6 +241,8 @@ export default function StudentProfilePage() {
                             </Button>
                         </CardContent>
                     </Card>
+
+                    <ApiBalanceTracker />
                 </div>
             </div>
 

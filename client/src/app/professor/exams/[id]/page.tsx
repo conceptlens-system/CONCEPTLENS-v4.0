@@ -177,6 +177,11 @@ export default function EditExamPage({ params }: { params: Promise<{ id: string 
             toast.success(`Generated ${mapping.length} questions!`)
         } catch (e: any) {
             console.error(e)
+            if (e.message?.includes("API token are over")) {
+                toast.error("API tokens are over. Wait until re-stores.");
+                router.push("/contact");
+                return;
+            }
             toast.error("AI Generation Failed: " + (e.message || "Unknown error"))
         } finally {
             setAiGenerating(false)

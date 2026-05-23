@@ -31,11 +31,19 @@ class GeneratedQuestion(BaseModel):
     topic: Optional[str] = None
     unit: Optional[str] = None
 
+from app.core.tokens import check_and_deduct_tokens
+
 @router.post("/generate", response_model=List[GeneratedQuestion])
 async def generate_exam(request: ExamGenerationRequest, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "professor":
+        raise HTTPException(status_code=403, detail="Only professors can generate exams.")
     try:
-        # 1. Fetch Syllabus
         db = await get_database()
+        
+        # Check and deduct 1 token for this AI generation
+        await check_and_deduct_tokens(current_user, db, required_tokens=1)
+
+        # 1. Fetch Syllabus
         try:
             subject = await db.subjects.find_one({"_id": ObjectId(request.subject_id)})
         except:

@@ -33,11 +33,17 @@ class PracticeSubmission(BaseModel):
     total_questions: int
     difficulty: str
 
+from app.core.tokens import check_and_deduct_tokens
+
 @router.post("/generate", response_model=List[PracticeQuestion])
 async def generate_practice(request: PracticeGenerationRequest, current_user: dict = Depends(get_current_user)):
     try:
-        # 1. Fetch Subject for Context
         db = await get_database()
+        
+        # Check and deduct 1 token for this AI generation
+        await check_and_deduct_tokens(current_user, db, required_tokens=1)
+
+        # 1. Fetch Subject for Context
         try:
             subject = await db.subjects.find_one({"_id": ObjectId(request.subject_id)})
         except:

@@ -4,12 +4,35 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000
 
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
     const res = await fetch(input, init);
-    if (res.status === 401) {
-        if (typeof window !== 'undefined') {
-            const event = new CustomEvent('conceptlens-maintenance-active');
-            window.dispatchEvent(event);
+    // Only trigger the maintenance event when the backend explicitly says we are in maintenance (403).
+    // A plain 401 just means the session is expired or the token is invalid — not a maintenance situation.
+    if (res.status === 403 && typeof window !== 'undefined') {
+        try {
+            const cloned = res.clone();
+            const body = await cloned.json();
+            const detail: string = body?.detail ?? '';
+            if (detail.toLowerCase().includes('maintenance')) {
+                const event = new CustomEvent('conceptlens-maintenance-active');
+                window.dispatchEvent(event);
+                throw new Error("Platform is currently in maintenance mode.");
+            }
+        } catch (e) {
+            if ((e as Error).message.includes('maintenance')) throw e;
+            // JSON parse error — not a maintenance response, continue normally
         }
-        throw new Error("Session expired or maintenance mode active");
+    }
+    if (res.ok && typeof window !== 'undefined') {
+        const urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : '');
+        if (
+            urlStr.includes('/ai-exams/') ||
+            urlStr.includes('/practice/') ||
+            urlStr.includes('/legal-strategy/') ||
+            urlStr.includes('/analytics/study-plan') ||
+            urlStr.includes('/analytics/career-mapping') ||
+            urlStr.includes('/analytics/remediation')
+        ) {
+            window.dispatchEvent(new CustomEvent('conceptlens-tokens-updated'));
+        }
     }
     return res;
 }
@@ -242,10 +265,6 @@ export async function fetchExams(token: string) {
         cache: 'no-store',
         headers: { "Authorization": `Bearer ${token}` }
     });
-    if (res.status === 401) {
-        window.location.href = '/login?maintenance=true';
-        throw new Error("Session expired or maintenance mode active");
-    }
     if (!res.ok) {
         throw new Error(`Failed to fetch exams: ${res.status} ${res.statusText}`);
     }
@@ -604,15 +623,19 @@ export async function deleteNotification(id: string, token: string) {
 
 // --- Professor Onboarding (Admin) ---
 
-export async function fetchProfessorRequests() {
-    const res = await apiFetch(`${API_URL}/users/requests`, { cache: 'no-store' });
+export async function fetchProfessorRequests(token: string) {
+    const res = await apiFetch(`${API_URL}/users/requests`, { 
+        cache: 'no-store',
+        headers: { "Authorization": `Bearer ${token}` }
+    });
     if (!res.ok) throw new Error("Failed to fetch requests");
     return res.json();
 }
 
-export async function approveProfessorRequest(id: string) {
+export async function approveProfessorRequest(token: string, id: string) {
     const res = await apiFetch(`${API_URL}/users/requests/${id}/approve`, {
         method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
     });
     if (!res.ok) throw new Error("Failed to approve");
     return res.json();
@@ -654,17 +677,23 @@ export async function deleteInstitute(id: string) {
     return res.json();
 }
 
-export async function fetchUsers(role?: string) {
+export async function fetchUsers(token: string, role?: string) {
     const url = role ? `${API_URL}/users/?role=${role}` : `${API_URL}/users/`;
-    const res = await apiFetch(url, { cache: 'no-store' });
+    const res = await apiFetch(url, { 
+        cache: 'no-store',
+        headers: { "Authorization": `Bearer ${token}` }
+    });
     if (!res.ok) throw new Error("Failed to fetch users");
     return res.json();
 }
 
-export async function createUser(data: any) {
+export async function createUser(token: string, data: any) {
     const res = await apiFetch(`${API_URL}/users/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(data),
     });
     if (!res.ok) {
@@ -674,9 +703,10 @@ export async function createUser(data: any) {
     return res.json();
 }
 
-export async function deleteUser(id: string) {
+export async function deleteUser(token: string, id: string) {
     const res = await apiFetch(`${API_URL}/users/${id}`, {
         method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
     });
     if (!res.ok) throw new Error("Failed to delete user");
     return res.json();
@@ -808,11 +838,8 @@ export async function fetchGlobalSettings(token: string) {
     const res = await apiFetch(`${API_URL}/settings/`, {
         headers: { Authorization: `Bearer ${token}` }
     });
-    if (res.status === 401) {
-        window.location.href = '/login?maintenance=true';
-        throw new Error("Session expired or maintenance mode active");
-    }
-    if (!res.ok) throw new Error("Failed to fetch global settings");
+    if (res.status === 401) throw new Error(`401: Session expired or invalid token`);
+    if (!res.ok) throw new Error(`Failed to fetch global settings: ${res.status}`);
     return res.json();
 }
 

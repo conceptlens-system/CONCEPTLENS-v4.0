@@ -19,10 +19,15 @@ class LegalStrategyResponse(BaseModel):
     arguments: List[str]
     precedents: List[str]
 
+from app.core.tokens import check_and_deduct_tokens
+
 @router.post("/generate", response_model=LegalStrategyResponse)
 async def generate_legal_strategy(request: LegalStrategyRequest, current_user: dict = Depends(get_current_user)):
     try:
         db = await get_database()
+        
+        # Check and deduct 1 token for this AI generation
+        await check_and_deduct_tokens(current_user, db, required_tokens=1)
         
         # Check if AI features are globally enabled
         global_settings = await db["global_settings"].find_one({"_id": "global_config"})

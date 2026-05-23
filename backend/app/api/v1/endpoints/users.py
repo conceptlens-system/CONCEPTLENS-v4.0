@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from typing import List
 from app.core.database import get_database
 from app.models.schemas import ProfessorRequest, ProfessorRequestCreate, Institution
+from app.core.security import get_current_user
 from bson import ObjectId
 
 router = APIRouter()
@@ -32,7 +33,9 @@ async def request_access(request: ProfessorRequestCreate):
     return created
 
 @router.get("/requests", response_model=List[ProfessorRequest])
-async def list_requests():
+async def list_requests(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
     db = await get_database()
     cursor = db.professor_requests.find({"status": "PENDING"})
     requests = await cursor.to_list(length=100)
@@ -42,7 +45,9 @@ async def list_requests():
 
 # Admin endpoint to approve (Mock implementation for now, or real via admin panel)
 @router.post("/requests/{request_id}/approve")
-async def approve_request(request_id: str):
+async def approve_request(request_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
     db = await get_database()
     try:
         oid = ObjectId(request_id)
@@ -83,7 +88,7 @@ async def approve_request(request_id: str):
     user_dict = {
         "email": req["email"],
         "full_name": req["full_name"],
-        "hashed_password": get_password_hash("professor123"), # Default logic for now
+        "hashed_password": None, # Admin approves, Professor sets via Forgot Password
         "role": "professor",
         "institution_id": institution_id,
         "institute_name": req.get("new_institution_name"),
@@ -102,10 +107,12 @@ async def approve_request(request_id: str):
     await db.users.insert_one(user_dict)
     await db.professor_requests.update_one({"_id": oid}, {"$set": {"status": "APPROVED"}})
     
-    return {"message": "Professor approved and user created (pass: professor123)"}
+    return {"message": "Professor approved and user created. They should use forgot password to set their access credentials."}
 
 @router.post("/", status_code=201)
-async def create_professor(data: dict = Body(...)):
+async def create_professor(data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
     # Direct admin creation
     db = await get_database()
     
@@ -129,7 +136,9 @@ async def create_professor(data: dict = Body(...)):
     return {"message": "Professor created"}
 
 @router.get("/", response_model=List[dict])
-async def list_users(role: str = None):
+async def list_users(role: str = None, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
     db = await get_database()
     query = {}
     if role:
@@ -148,7 +157,9 @@ async def list_users(role: str = None):
     return users
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str):
+async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
     db = await get_database()
     try:
         oid = ObjectId(user_id)

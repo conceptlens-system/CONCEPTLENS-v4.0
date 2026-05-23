@@ -1,13 +1,22 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import List
 from app.models.schemas import StudentResponseCreate, StudentResponse
 from app.core.database import get_database
+from app.core.security import get_current_user
 from app.kiro.job_runner import trigger_analysis_job
 
 router = APIRouter()
 
 @router.post("/responses", status_code=202)
-async def ingest_responses(responses: List[StudentResponseCreate], background_tasks: BackgroundTasks):
+async def ingest_responses(responses: List[StudentResponseCreate], background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    if not responses:
+        raise HTTPException(status_code=400, detail="Empty responses list")
+
+    student_id = responses[0].student_id
+    # Security: Ensure the submitting user is the student
+    if current_user.get("role") != "student" or current_user.get("email") != student_id:
+        raise HTTPException(status_code=403, detail="You can only submit responses for your own account")
+
     db = await get_database()
     
     # Insert raw responses

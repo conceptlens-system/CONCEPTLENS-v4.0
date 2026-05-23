@@ -69,6 +69,12 @@ class UserBase(BaseModel):
     full_name: Optional[str] = None
     role: str = "student" 
 
+    # Token Quota System
+    daily_token_limit: Optional[int] = None
+    tokens_used: int = 0
+    token_last_reset: Optional[str] = None
+    lifetime_tokens_used: int = 0
+
     # Profile Fields (Optional)
     contact_number: Optional[str] = None
     department: Optional[str] = None

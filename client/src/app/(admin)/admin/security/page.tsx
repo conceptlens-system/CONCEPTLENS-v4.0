@@ -15,7 +15,7 @@ import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function SecurityConfigPage() {
-    const { data: session } = useSession()
+    const { data: session, status } = useSession()
     const [config, setConfig] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -31,9 +31,11 @@ export default function SecurityConfigPage() {
 
     useEffect(() => {
         async function loadConfig() {
+            if (status === 'loading') return
             if (!session?.user) return
+            const token = (session.user as any).accessToken
+            if (!token) return  // Wait until token is available
             try {
-                const token = (session.user as any).accessToken
                 const data = await fetchSecurityConfig(token)
                 setConfig(data)
                 setRateLimitRequests(data.rate_limit_requests)
@@ -57,7 +59,7 @@ export default function SecurityConfigPage() {
             }
         }
         loadConfig()
-    }, [session])
+    }, [session, status])
 
     const handleSave = async () => {
         setSaving(true)

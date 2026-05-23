@@ -152,7 +152,7 @@ async def create_exam(exam: ExamCreate, current_user: dict = Depends(get_current
         raise HTTPException(status_code=500, detail=f"Backend Error: {str(e)}")
 
 @router.get("/{exam_id}", response_model=Exam)
-async def get_exam(exam_id: str):
+async def get_exam(exam_id: str, current_user: dict = Depends(get_current_user)):
     db = await get_database()
     try:
         obj_id = ObjectId(exam_id)
@@ -165,6 +165,27 @@ async def get_exam(exam_id: str):
         
     exam["_id"] = str(exam["_id"])
     ensure_utc(exam)
+
+    # Security: If user is a student, check enrollment and hide answers if results are not published
+    if current_user.get("role") == "student":
+        # Note: You could also check if student is enrolled in the class here.
+        if not exam.get("results_published", False):
+            # Check dynamic publish schedule just in case
+            s_time = exam.get("scheduled_publish_time")
+            if s_time:
+                if isinstance(s_time, str):
+                    s_time = datetime.fromisoformat(s_time.replace("Z", "+00:00"))
+                if s_time.tzinfo is None:
+                    s_time = s_time.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) >= s_time:
+                    exam["results_published"] = True
+            
+            if not exam.get("results_published", False):
+                # Strip correct answers and explanations
+                for q in exam.get("questions", []):
+                    q["correct_answer"] = ""
+                    q["explanation"] = ""
+
     return exam
 
 @router.put("/{exam_id}", response_model=Exam)

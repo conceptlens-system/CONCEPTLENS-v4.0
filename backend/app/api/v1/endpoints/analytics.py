@@ -134,6 +134,9 @@ async def generate_student_study_plan(payload: dict, current_user: dict = Depend
     if not topic:
         raise HTTPException(status_code=400, detail="Topic required")
         
+    db = await get_database()
+    await check_and_deduct_tokens(current_user, db, required_tokens=1)
+        
     genai.configure(api_key=settings.GEMINI_API_KEY)
     model = genai.GenerativeModel('gemini-1.5-flash')
     
@@ -202,6 +205,7 @@ async def get_student_career_mapping(current_user: dict = Depends(get_current_us
 
 
     # 2. Use Gemini to map these topics to job roles
+    await check_and_deduct_tokens(current_user, db, required_tokens=1)
     genai.configure(api_key=settings.GEMINI_API_KEY)
     model = genai.GenerativeModel('gemini-1.5-flash')
     
@@ -878,6 +882,8 @@ class ChatMessage(BaseModel):
 
 @router.post("/misconceptions/{id}/remediation-plan")
 async def generate_remediation_plan(id: str, current_user: dict = Depends(get_current_user)):
+    db = await get_database()
+    await check_and_deduct_tokens(current_user, db, required_tokens=1)
     try:
         enriched_misc = await get_misconception_detail(id)
     except HTTPException as e:

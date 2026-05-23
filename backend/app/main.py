@@ -44,5 +44,6 @@ async def global_exception_handler(request: Request, exc: Exception):
     print("###################################")
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc), "traceback": error_msg},
+        content={"detail": "Internal Server Error. Please contact support."},
     )
+# Uvicorn reload trigger comment

@@ -106,7 +106,11 @@ function PracticeContent() {
             setViewState("quiz")
         } catch (e: any) {
             const errorMsg = e.message || "Unknown error"
-            if (errorMsg.toLowerCase().includes("disabled") || errorMsg.includes("AI features are currently disabled")) {
+            if (errorMsg.includes("API token are over")) {
+                toast.error("API tokens are over. Wait until re-stores.");
+                router.push("/contact");
+                return;
+            } else if (errorMsg.toLowerCase().includes("disabled") || errorMsg.includes("AI features are currently disabled")) {
                 setShowAiDisabledModal(true)
             } else {
                 toast.error("Failed to generate practice quiz. Try again later.")

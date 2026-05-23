@@ -1,17 +1,17 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Body
+from fastapi import APIRouter, HTTPException, status, Depends, Body, Request
 from app.models.schemas import UserCreate, UserLogin, User, Token, ChangePasswordRequest
-from app.core.security import get_password_hash, verify_password, create_access_token, get_current_user
+from app.core.security import get_password_hash, verify_password, create_access_token, get_current_user, is_maintenance_active
 from app.core.database import get_database
+from app.core.rate_limit import login_limiter
 from fastapi.responses import JSONResponse
 from bson import ObjectId
 from datetime import datetime
 
 router = APIRouter()
 
-@router.post("/signup", response_model=User, status_code=status.HTTP_201_CREATED)
+@router.post("/signup", response_model=User, status_code=status.HTTP_201_CREATED, dependencies=[Depends(login_limiter)])
 async def signup(user: UserCreate, db = Depends(get_database)):
-    global_settings = await db["global_settings"].find_one({"_id": "global_config"})
-    if global_settings and global_settings.get("maintenance_mode", False):
+    if await is_maintenance_active(db):
         raise HTTPException(status_code=403, detail="Platform is currently offline for maintenance. Please try again later.")
 
     # Check if user exists
@@ -59,7 +59,7 @@ async def signup(user: UserCreate, db = Depends(get_database)):
     created_user = await db["users"].find_one({"_id": new_user.inserted_id})
     return created_user
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(login_limiter)])
 async def login(user_in: UserLogin, db = Depends(get_database)):
     user = await db["users"].find_one({"email": user_in.email})
     if not user:
@@ -69,8 +69,7 @@ async def login(user_in: UserLogin, db = Depends(get_database)):
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    global_settings = await db["global_settings"].find_one({"_id": "global_config"})
-    if global_settings and global_settings.get("maintenance_mode", False):
+    if await is_maintenance_active(db):
         if user.get("role") != "admin":
             raise HTTPException(status_code=403, detail="Platform is currently offline for maintenance. Please try again later.")
             
@@ -109,8 +108,7 @@ async def google_login(payload: dict = Body(...), db = Depends(get_database)):
 
     user = await db["users"].find_one({"email": email})
     
-    global_settings = await db["global_settings"].find_one({"_id": "global_config"})
-    if global_settings and global_settings.get("maintenance_mode", False):
+    if await is_maintenance_active(db):
         if not user or user.get("role") != "admin":
             raise HTTPException(status_code=403, detail="Platform is currently offline for maintenance. Please try again later.")
     

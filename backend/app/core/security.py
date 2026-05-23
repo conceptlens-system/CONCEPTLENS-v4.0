@@ -9,10 +9,13 @@ from bson import ObjectId
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
+from app.core.config import settings
+
 PWD_CONTEXT = CryptContext(schemes=["pbkdf2_sha256", "bcrypt", "sha256_crypt", "md5_crypt"], deprecated="auto")
-SECRET_KEY = "CHANGE_THIS_IN_PRODUCTION_SECRET_KEY" # TODO: Move to env
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+
 
 import bcrypt
 
@@ -49,6 +52,30 @@ def create_access_token(subject: Union[str, Any], role: str, name: str, expires_
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+async def is_maintenance_active(db) -> bool:
+    # Check global maintenance but don't crash if it doesn't exist
+    security_config = await db["system_settings"].find_one({"_id": "security"})
+    if security_config and security_config.get("maintenance_mode", False) is True:
+        maintenance_type = security_config.get("maintenance_type", "instant")
+        if maintenance_type == "instant":
+            return True
+        elif maintenance_type == "scheduled":
+            start_str = security_config.get("maintenance_start")
+            end_str = security_config.get("maintenance_end")
+            if start_str and end_str:
+                try:
+                    from datetime import timezone
+                    start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+                    end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+                    now = datetime.utcnow()
+                    if start_time.tzinfo:
+                        now = now.replace(tzinfo=timezone.utc)
+                    if start_time <= now <= end_time:
+                        return True
+                except Exception as e:
+                    print(f"Error parsing maintenance schedule: {e}")
+    return False
+
 async def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get_database)):
     print(f"DEBUG: Received token: {token}")
     credentials_exception = HTTPException(
@@ -69,28 +96,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get
         raise credentials_exception
         
     if user.get("role") != "admin":
-        # Check global maintenance but don't crash if it doesn't exist
-        security_config = await db["system_settings"].find_one({"_id": "security"})
-        if security_config and security_config.get("maintenance_mode", False) is True:
-            maintenance_type = security_config.get("maintenance_type", "instant")
-            if maintenance_type == "instant":
-                raise credentials_exception
-            elif maintenance_type == "scheduled":
-                start_str = security_config.get("maintenance_start")
-                end_str = security_config.get("maintenance_end")
-                if start_str and end_str:
-                    try:
-                        from datetime import timezone
-                        start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-                        end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
-                        now = datetime.utcnow()
-                        if start_time.tzinfo:
-                            now = now.replace(tzinfo=timezone.utc)
-                        if start_time <= now <= end_time:
-                            raise credentials_exception
-                    except Exception as e:
-                        print(f"Error parsing maintenance schedule: {e}")
-                        # Fallback block if schedule is malformed just in case
-                        pass
+        if await is_maintenance_active(db):
+            raise credentials_exception
             
     return user
